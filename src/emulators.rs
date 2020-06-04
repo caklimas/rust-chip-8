@@ -24,10 +24,36 @@ pub mod chip_8 {
                 self.memory[START_ADDRESS as usize + index] = byte;
             }
         }
+
+        fn initialize_fontset(&mut self) {
+            const FONT_START_ADDRESS: usize = 0x50;
+            let font_set: [u8; 80] = [
+                0xF0, 0x90, 0x90, 0x90, 0xF0, // 0
+                0x20, 0x60, 0x20, 0x20, 0x70, // 1
+                0xF0, 0x10, 0xF0, 0x80, 0xF0, // 2
+                0xF0, 0x10, 0xF0, 0x10, 0xF0, // 3
+                0x90, 0x90, 0xF0, 0x10, 0x10, // 4
+                0xF0, 0x80, 0xF0, 0x10, 0xF0, // 5
+                0xF0, 0x80, 0xF0, 0x90, 0xF0, // 6
+                0xF0, 0x10, 0x20, 0x40, 0x40, // 7
+                0xF0, 0x90, 0xF0, 0x90, 0xF0, // 8
+                0xF0, 0x90, 0xF0, 0x10, 0xF0, // 9
+                0xF0, 0x90, 0xF0, 0x90, 0x90, // A
+                0xE0, 0x90, 0xE0, 0x90, 0xE0, // B
+                0xF0, 0x80, 0x80, 0x80, 0xF0, // C
+                0xE0, 0x90, 0x90, 0x90, 0xE0, // D
+                0xF0, 0x80, 0xF0, 0x80, 0xF0, // E
+                0xF0, 0x80, 0xF0, 0x80, 0x80  // F
+            ];
+
+            for (index, &b) in font_set.iter().enumerate() {
+                self.memory[FONT_START_ADDRESS + index] = b;
+            }
+        }
     }
 
-    pub fn initialize_chip_8() -> Chip8 {
-        return Chip8 {
+    pub fn new() -> Chip8 {
+        let mut chip8 = Chip8 {
             cpu_registers: [0; 16],
             memory: [0; 4096],
             index_register: 0,
@@ -40,6 +66,10 @@ pub mod chip_8 {
             graphics: [0; 64 * 32],
             current_opcode: 0
         };
+
+        chip8.initialize_fontset();
+
+        return chip8;
     }
 }
 
