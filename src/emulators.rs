@@ -1,6 +1,8 @@
 use std::fs;
 
 pub mod chip_8 {
+    pub const START_ADDRESS: u16 = 0x200;
+
     pub struct Chip8 {
         pub current_opcode: u16,
         pub memory: [u8; 4096],
@@ -16,12 +18,10 @@ pub mod chip_8 {
     }
 
     impl Chip8 {
-        pub fn load_ROM(&mut self, file_name: &str) {   
-            const START_ADDRESS: usize = 0x200;
-
+        pub fn load_ROM(&mut self, file_name: &str) {
             let bytes = std::fs::read(file_name).expect("File not found");
             for (index, &byte) in bytes.iter().enumerate() {
-                self.memory[START_ADDRESS + index] = byte;
+                self.memory[START_ADDRESS as usize + index] = byte;
             }
         }
     }
@@ -31,7 +31,7 @@ pub mod chip_8 {
             cpu_registers: [0; 16],
             memory: [0; 4096],
             index_register: 0,
-            program_counter: 0,
+            program_counter: START_ADDRESS,
             execution_stack: [0; 16],
             stack_pointer: 0,
             delay_timer: 0,
