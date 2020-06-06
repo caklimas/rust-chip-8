@@ -36,8 +36,7 @@ impl Cpu {
         return chip8;
     }
 
-    pub fn load_ROM(&mut self, file_name: &str) {
-        let bytes = std::fs::read(file_name).expect("File not found");
+    pub fn load_ROM(&mut self, bytes: Vec<u8>) {
         for (index, &byte) in bytes.iter().enumerate() {
             self.memory[START_ADDRESS as usize + index] = byte;
         }
