@@ -71,8 +71,8 @@ impl Cpu {
 
     /// SE Vx, byte - if Vx equals kk then increment program counter by 2
     pub fn op_3xkk(&mut self) {
-        let x = (self.current_opcode & 0x0F00) >> 8;
-        let kk = (self.current_opcode & 0x00FF) as u8;
+        let x = self.get_x();
+        let kk = self.get_kk();
 
         if self.cpu_registers[x as usize] != kk {
             return;
@@ -83,14 +83,95 @@ impl Cpu {
 
     /// SNE Vx, byte - if Vx does not equal kk then increment program counter by 2
     pub fn op_4xkk(&mut self) {
-        let x = (self.current_opcode & 0x0F00) >> 8;
-        let kk = (self.current_opcode & 0x00FF) as u8;
+        let x = self.get_x();
+        let kk = self.get_kk();
 
         if self.cpu_registers[x as usize] == kk {
             return;
         }
 
         self.program_counter = self.program_counter + 2;
+    }
+
+    /// SE Vx, Vy - Compare Vx to Vy. If they are equal, then increment counter by 2
+    pub fn op_5xy0(&mut self) {
+        let x = self.get_x();
+        let y = self.get_y();
+
+        if self.cpu_registers[x as usize] != self.cpu_registers[y as usize] {
+            return;
+        }
+
+        self.program_counter = self.program_counter + 2;
+    }
+
+    /// LD Vx, byte - Sets Vx to kk 
+    pub fn op_6xkk(&mut self) {
+        let x = self.get_x();
+        let kk = self.get_kk();
+
+        self.cpu_registers[x as usize] = kk;
+    }
+
+    /// ADD Vx, byte - Adds kk to Vx
+    pub fn op_7xkk(&mut self) {
+        let x = self.get_x();
+        let kk = self.get_kk();
+
+        self.cpu_registers[x] = self.cpu_registers[x] + kk;
+    }
+
+    /// LD Vx, Vy - Sets Vx to Vy
+    pub fn op_8xy09(&mut self) {
+        let x = self.get_x();
+        let y = self.get_y();
+
+        self.cpu_registers[x] = self.cpu_registers[y];
+    }
+
+    /// OR Vx, Vy - Does a bitwise OR on Vx and Vy and stores it in Vx
+    pub fn op_8xy1(&mut self) {
+        let x = self.get_x();
+        let y = self.get_y();
+
+        self.cpu_registers[x] = self.cpu_registers[x] | self.cpu_registers[y]; 
+    }
+
+    /// AND Vx, Vy - Does a bitwise AND on Vx and Vy and stores it in Vx
+    pub fn op_8xy2(&mut self) {
+        let x = self.get_x();
+        let y = self.get_y();
+
+        self.cpu_registers[x] = self.cpu_registers[x] & self.cpu_registers[y]; 
+    }
+
+    /// XOR Vx, Vy - Does a bitwise XOR on Vx and Vy and stores it in Vx
+    pub fn op_8xy3(&mut self) {
+        let x = self.get_x();
+        let y = self.get_y();
+
+        self.cpu_registers[x] = self.cpu_registers[x] ^ self.cpu_registers[y];
+    }
+
+    pub fn op_8xy4(&mut self) {
+        let x = self.get_x();
+        let y = self.get_y();
+
+        let sum = self.cpu_registers[x] + self.cpu_registers[y];
+        self.cpu_registers[0xF as usize] = if sum > (0xFF as u8) { 1 } else { 0 };
+        self.cpu_registers[x] = sum & 0xFF;
+    }
+
+    fn get_x(&mut self) -> usize {
+        ((self.current_opcode & 0x0F00) >> 8) as usize
+    }
+
+    fn get_y(&mut self) -> usize {
+        ((self.current_opcode & 0x00F0) >> 4) as usize
+    }
+
+    fn get_kk(&mut self) -> u8 {
+        (self.current_opcode & 0x00FF) as u8
     }
 
     fn initialize_fontset(&mut self) {
