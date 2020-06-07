@@ -69,6 +69,7 @@ impl Cpu {
         self.program_counter = address;
     }
 
+    /// SE Vx, byte - if Vx equals kk then increment program counter by 2
     pub fn op_3xkk(&mut self) {
         let x = (self.current_opcode & 0x0F00) >> 8;
         let kk = (self.current_opcode & 0x00FF) as u8;
@@ -76,6 +77,20 @@ impl Cpu {
         if self.cpu_registers[x as usize] != kk {
             return;
         }
+
+        self.program_counter = self.program_counter + 2;
+    }
+
+    /// SNE Vx, byte - if Vx does not equal kk then increment program counter by 2
+    pub fn op_4xkk(&mut self) {
+        let x = (self.current_opcode & 0x0F00) >> 8;
+        let kk = (self.current_opcode & 0x00FF) as u8;
+
+        if self.cpu_registers[x as usize] == kk {
+            return;
+        }
+
+        self.program_counter = self.program_counter + 2;
     }
 
     fn initialize_fontset(&mut self) {
