@@ -153,6 +153,7 @@ impl Cpu {
         self.cpu_registers[x] = self.cpu_registers[x] ^ self.cpu_registers[y];
     }
 
+    /// ADD Vx, Vy
     pub fn op_8xy4(&mut self) {
         let x = self.get_x();
         let y = self.get_y();
@@ -160,6 +161,79 @@ impl Cpu {
         let sum = self.cpu_registers[x] + self.cpu_registers[y];
         self.cpu_registers[0xF as usize] = if sum > (0xFF as u8) { 1 } else { 0 };
         self.cpu_registers[x] = sum & 0xFF;
+    }
+
+    /// SUB Vx, Vy
+    pub fn op_8xy5(&mut self) {
+        let x = self.get_x();
+        let y = self.get_y();
+
+        if self.cpu_registers[x] > self.cpu_registers[y] {
+            self.cpu_registers[0xF as usize] = 1;
+        } else {
+            self.cpu_registers[0xF as usize] = 0;
+        }
+
+        self.cpu_registers[x] = self.cpu_registers[x] - self.cpu_registers[y];
+    }
+
+    /// SHR Vx {, Vy}
+    pub fn op_8xy6(&mut self) {
+        let x = self.get_x();
+
+        self.cpu_registers[0xF as usize] = self.cpu_registers[x] & 0x1;
+        self.cpu_registers[x] = self.cpu_registers[x] >> 1;
+    }
+
+    /// SUBN Vx, Vy
+    pub fn op_8xy7(&mut self) {
+        let x = self.get_x();
+        let y = self.get_y();
+
+        if self.cpu_registers[y] > self.cpu_registers[x] {
+            self.cpu_registers[0xF as usize] = 1;
+        } else {
+            self.cpu_registers[0xF as usize] = 0;
+        }
+
+        self.cpu_registers[x] = self.cpu_registers[y] - self.cpu_registers[x];
+    }
+
+    /// SHL Vx {, Vy}
+    pub fn op_8xyE(&mut self) {
+        let x = self.get_x();
+
+        self.cpu_registers[0xF as usize] = (self.cpu_registers[x] & 0x80) >> 7;
+        self.cpu_registers[x] = self.cpu_registers[x] << 1;
+    }
+
+    /// SNE Vx, Vy
+    pub fn op_9xy0(&mut self) {
+        let x = self.get_x();
+        let y = self.get_y();
+
+        if (self.cpu_registers[x] == self.cpu_registers[y]) {
+            return;
+        }
+
+        self.program_counter = self.program_counter + 2;
+    }
+
+    /// LD I, addr
+    pub fn op_Annn(&mut self) {
+        let address = self.current_opcode & 0x0FFF;
+        self.index_register = address;
+    }
+
+    /// JP V0, addr
+    pub fn op_Bnnn(&mut self) {
+        let address = self.current_opcode & 0x0FFF;
+        self.program_counter = (self.cpu_registers[0] as u16) + address;
+    }
+
+    /// RND Vx, byte
+    pub fn op_Cxkk(&mut self) {
+        let kk = self.get_kk();
     }
 
     fn get_x(&mut self) -> usize {
