@@ -1,4 +1,7 @@
+use rand::Rng;
 const START_ADDRESS: u16 = 0x200;
+const VIDEO_WIDTH: u8 = 64;
+const VIDEO_HEIGHT: u8 = 32;
 
 pub struct Cpu {
     pub current_opcode: u16,
@@ -11,7 +14,7 @@ pub struct Cpu {
     pub delay_timer: u8, // If it's zero it stays zero, otherwise it counts down to zero at 60Hz
     pub sound_timer: u8, // If it's zero it stays zero, otherwise it decrements and makes a sound every time it does
     pub keypad: [u8; 16],
-    pub graphics: [u32; 64 * 32]
+    pub graphics: [[u8; VIDEO_WIDTH as usize]; VIDEO_HEIGHT as usize]
 }
 
 impl Cpu {
@@ -26,7 +29,7 @@ impl Cpu {
             delay_timer: 0,
             sound_timer: 0,
             keypad: [0; 16],
-            graphics: [0; 64 * 32],
+            graphics: [[0; VIDEO_WIDTH as usize]; VIDEO_HEIGHT as usize],
             current_opcode: 0
         };
     
@@ -44,7 +47,9 @@ impl Cpu {
     /// CLS - Clears the display
     pub fn op_00E0(&mut self) {
         for i in 0..self.graphics.len() {
-            self.graphics[i] = 0;
+            for j in 0..self.graphics[i].len() {
+                self.graphics[i][j] = 0;
+            }
         }
     }
 
@@ -233,7 +238,32 @@ impl Cpu {
 
     /// RND Vx, byte
     pub fn op_Cxkk(&mut self) {
+        let x = self.get_x();
         let kk = self.get_kk();
+        let mut rand = rand::thread_rng();
+        let random = rand.gen_range(0, 255);
+
+        self.cpu_registers[x] = kk & random;
+    }
+
+    /// DRW Vx, Vy, nibble
+    pub fn op_Dxyn(&mut self) {
+        let x = self.get_x();
+        let y = self.get_y();
+        let n = self.current_opcode & 0xF;
+
+        self.cpu_registers[0xF] = 0;
+        
+        for byte in 0..n {
+            let y_pos = (self.cpu_registers[y + byte as usize] % VIDEO_HEIGHT) as usize;
+            let sprite_byte = self.memory[(self.index_register + byte) as usize];
+            for bit in 0..8 {
+                let x_pos = (self.cpu_registers[x + bit] % VIDEO_WIDTH) as usize;
+                let color = (sprite_byte >> (7 - bit)) & 1;
+                self.cpu_registers[0xF] |= color & self.graphics[y_pos as usize][x_pos as usize];
+                self.graphics[y_pos as usize][x_pos as usize];
+            }
+        }
     }
 
     fn get_x(&mut self) -> usize {
