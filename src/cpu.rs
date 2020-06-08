@@ -1,5 +1,6 @@
 use rand::Rng;
 const START_ADDRESS: u16 = 0x200;
+const FONT_START_ADDRESS: usize = 0x50;
 const VIDEO_WIDTH: u8 = 64;
 const VIDEO_HEIGHT: u8 = 32;
 
@@ -83,7 +84,7 @@ impl Cpu {
             return;
         }
 
-        self.program_counter = self.program_counter + 2;
+        self.program_counter += 2;
     }
 
     /// SNE Vx, byte - if Vx does not equal kk then increment program counter by 2
@@ -95,7 +96,7 @@ impl Cpu {
             return;
         }
 
-        self.program_counter = self.program_counter + 2;
+        self.program_counter += 2;
     }
 
     /// SE Vx, Vy - Compare Vx to Vy. If they are equal, then increment counter by 2
@@ -107,7 +108,7 @@ impl Cpu {
             return;
         }
 
-        self.program_counter = self.program_counter + 2;
+        self.program_counter += 2;
     }
 
     /// LD Vx, byte - Sets Vx to kk 
@@ -221,7 +222,7 @@ impl Cpu {
             return;
         }
 
-        self.program_counter = self.program_counter + 2;
+        self.program_counter += 2;
     }
 
     /// LD I, addr
@@ -266,6 +267,109 @@ impl Cpu {
         }
     }
 
+    /// SKP Vx
+    pub fn op_Ex9E(&mut self) {
+        let x = self.get_x();
+
+        if self.keypad[x] == 0 {
+            return;
+        }
+
+        self.program_counter += 2;
+    }
+
+    /// SKNP Vx
+    pub fn op_ExA1(&mut self) {
+        let x = self.get_x();
+
+        if self.keypad[x] != 0 {
+            return;
+        }
+
+        self.program_counter += 2;
+    }
+
+    /// LD Vx, DT
+    pub fn op_Fx07(&mut self) {
+        let x = self.get_x();
+
+        self.cpu_registers[x] = self.delay_timer;
+    }
+
+    /// LD Vx, K
+    pub fn op_Fx0A(&mut self) {
+        let x = self.get_x();
+
+        let mut key_pressed = false;
+        for i in 0..self.keypad.len() {
+            if self.keypad[i] != 0 {
+                key_pressed = true;
+                break;
+            }
+        }
+
+        if !key_pressed {
+            self.program_counter -= 2;
+        }
+    }
+
+    /// LD DT, Vx
+    pub fn op_Fx15(&mut self) {
+        let x = self.get_x();
+
+        self.delay_timer = self.cpu_registers[x];
+    }
+
+    /// LD ST, Vx
+    pub fn op_Fx18(&mut self) {
+        let x = self.get_x();
+
+        self.sound_timer = self.cpu_registers[x];
+    }
+
+    /// ADD I, Vx
+    pub fn op_Fx1E(&mut self) {
+        let x = self.get_x();
+
+        self.index_register += self.cpu_registers[x] as u16;
+    }
+
+    /// LD F, Vx
+    pub fn op_Fx29(&mut self) {
+        let x = self.get_x();
+        let digit = self.cpu_registers[x] as u16;
+
+        self.index_register = FONT_START_ADDRESS as u16 + (5 * digit);
+    }
+
+    /// LD B, Vx
+    pub fn op_Fx33(&mut self) {
+        let x = self.get_x();
+        let mut vx = self.cpu_registers[x];
+        
+        self.memory[(self.index_register + 2) as usize] = vx % 10;
+        vx /= 10;
+
+        self.memory[(self.index_register + 1) as usize] = vx % 10;
+        vx /= 10;
+
+        self.memory[(self.index_register) as usize] = vx % 10;
+    }
+
+    /// LD [I], Vx
+    pub fn op_Fx55(&mut self) {
+        for i in 0..self.cpu_registers.len() - 1 {
+            self.memory[self.index_register as usize + i] = self.cpu_registers[i];
+        }
+    }
+
+    /// LD Vx, [I]
+    pub fn op_Fx65(&mut self) {
+        for i in 0..self.cpu_registers.len() - 1 {
+            self.cpu_registers[i] = self.memory[self.index_register as usize + i];
+        }
+    }
+
     fn get_x(&mut self) -> usize {
         ((self.current_opcode & 0x0F00) >> 8) as usize
     }
@@ -279,7 +383,6 @@ impl Cpu {
     }
 
     fn initialize_fontset(&mut self) {
-        const FONT_START_ADDRESS: usize = 0x50;
         let font_set: [u8; 80] = [
             0xF0, 0x90, 0x90, 0x90, 0xF0, // 0
             0x20, 0x60, 0x20, 0x20, 0x70, // 1
