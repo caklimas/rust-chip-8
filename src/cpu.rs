@@ -103,7 +103,7 @@ impl Cpu {
             (0xF, _, 0x3, 0x3) => self.op_Fx33(),
             (0xF, _, 0x5, 0x5) => self.op_Fx55(),
             (0xF, _, 0x6, 0x5) => self.op_Fx65(),
-            _ => panic!("Unrecognized opcode")
+            _ => ()
         };
     }
 
@@ -134,6 +134,7 @@ impl Cpu {
 
     /// JP addr - Sets program counter to nnn
     fn op_1nnn(&mut self) {
+        println!("JMP");
         let address = self.current_opcode & 0x0FFF;
         self.program_counter = address;
     }
