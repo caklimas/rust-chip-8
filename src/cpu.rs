@@ -1,8 +1,9 @@
 use rand::Rng;
 const START_ADDRESS: u16 = 0x200;
 const FONT_START_ADDRESS: usize = 0x50;
-const VIDEO_WIDTH: u8 = 64;
-const VIDEO_HEIGHT: u8 = 32;
+
+pub const VIDEO_WIDTH: u8 = 64;
+pub const VIDEO_HEIGHT: u8 = 32;
 
 pub struct Cpu {
     pub current_opcode: u16,
@@ -19,7 +20,7 @@ pub struct Cpu {
 }
 
 impl Cpu {
-    pub fn new() -> Cpu {
+    pub fn new() -> Self {
         let mut chip8 = Cpu {
             cpu_registers: [0; 16],
             memory: [0; 4096],
