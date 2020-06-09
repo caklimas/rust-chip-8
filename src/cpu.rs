@@ -48,6 +48,7 @@ impl Cpu {
     pub fn cycle(&mut self) {
         self.fetch_opcode();
         self.execute_opcode();
+        self.update_timers();
     }
 
     fn fetch_opcode(&mut self) {
@@ -59,14 +60,14 @@ impl Cpu {
     }
 
     fn execute_opcode(&mut self) {
-        let parts = (
+        let opcode_parts = (
             (self.current_opcode & 0xF000) >> 12,
             (self.current_opcode & 0x0F00) >> 8,
             (self.current_opcode & 0x00F0) >> 4,
             (self.current_opcode & 0x000F) 
         );
 
-        match parts {
+        match opcode_parts {
             (0x0, 0x0, 0xE, 0x0) => self.op_00E0(),
             (0x0, 0x0, 0xE, 0xE) => self.op_00EE(),
             (0x1, _, _, _) => self.op_1nnn(),
@@ -96,8 +97,23 @@ impl Cpu {
             (0xF, _, 0x0, 0xA) => self.op_Fx0A(),
             (0xF, _, 0x1, 0x5) => self.op_Fx15(),
             (0xF, _, 0x1, 0x8) => self.op_Fx18(),
-            (_, _, _, _) => panic!("Unrecognized opcode")
+            (0xF, _, 0x1, 0xE) => self.op_Fx1E(),
+            (0xF, _, 0x2, 0x9) => self.op_Fx29(),
+            (0xF, _, 0x3, 0x3) => self.op_Fx33(),
+            (0xF, _, 0x5, 0x5) => self.op_Fx55(),
+            (0xF, _, 0x6, 0x5) => self.op_Fx65(),
+            _ => panic!("Unrecognized opcode")
         };
+    }
+
+    fn update_timers(&mut self) {
+        if self.delay_timer > 0 {
+            self.delay_timer -= 1;
+        }
+
+        if self.sound_timer > 0 {
+            self.sound_timer -= 1;
+        }
     }
 
     /// CLS - Clears the display
