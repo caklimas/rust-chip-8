@@ -45,8 +45,63 @@ impl Cpu {
         }
     }
 
+    pub fn cycle(&mut self) {
+        self.fetch_opcode();
+        self.execute_opcode();
+    }
+
+    fn fetch_opcode(&mut self) {
+        let first = self.memory[self.program_counter as usize] as u16;
+        let second = self.memory[(self.program_counter + 1) as usize] as u16;
+        let opcode = (first << 8) | (second & 0xFF);
+
+        self.current_opcode = opcode;
+    }
+
+    fn execute_opcode(&mut self) {
+        let parts = (
+            (self.current_opcode & 0xF000) >> 12,
+            (self.current_opcode & 0x0F00) >> 8,
+            (self.current_opcode & 0x00F0) >> 4,
+            (self.current_opcode & 0x000F) 
+        );
+
+        match parts {
+            (0x0, 0x0, 0xE, 0x0) => self.op_00E0(),
+            (0x0, 0x0, 0xE, 0xE) => self.op_00EE(),
+            (0x1, _, _, _) => self.op_1nnn(),
+            (0x2, _, _, _) => self.op_2nnn(),
+            (0x3, _, _, _) => self.op_3xkk(),
+            (0x4, _, _, _) => self.op_4xkk(),
+            (0x5, _, _, _) => self.op_5xy0(),
+            (0x6, _, _, _) => self.op_6xkk(),
+            (0x7, _, _, _) => self.op_7xkk(),
+            (0x8, _, _, 0x0) => self.op_8xy0(),
+            (0x8, _, _, 0x1) => self.op_8xy1(),
+            (0x8, _, _, 0x2) => self.op_8xy2(),
+            (0x8, _, _, 0x3) => self.op_8xy3(),
+            (0x8, _, _, 0x4) => self.op_8xy4(),
+            (0x8, _, _, 0x5) => self.op_8xy5(),
+            (0x8, _, _, 0x6) => self.op_8xy6(),
+            (0x8, _, _, 0x7) => self.op_8xy7(),
+            (0x8, _, _, 0xE) => self.op_8xyE(),
+            (0x9, _, _, _) => self.op_9xy0(),
+            (0xA, _, _, _) => self.op_Annn(),
+            (0xB, _, _, _) => self.op_Bnnn(),
+            (0xC, _, _, _) => self.op_Cxkk(),
+            (0xD, _, _, _) => self.op_Dxyn(),
+            (0xE, _, 0x9, 0xE) => self.op_Ex9E(),
+            (0xE, _, 0xA, 0x1) => self.op_ExA1(),
+            (0xF, _, 0x0, 0x7) => self.op_Fx07(),
+            (0xF, _, 0x0, 0xA) => self.op_Fx0A(),
+            (0xF, _, 0x1, 0x5) => self.op_Fx15(),
+            (0xF, _, 0x1, 0x8) => self.op_Fx18(),
+            (_, _, _, _) => panic!("Unrecognized opcode")
+        };
+    }
+
     /// CLS - Clears the display
-    pub fn op_00E0(&mut self) {
+    fn op_00E0(&mut self) {
         for i in 0..self.graphics.len() {
             for j in 0..self.graphics[i].len() {
                 self.graphics[i][j] = 0;
@@ -55,20 +110,20 @@ impl Cpu {
     }
 
     /// RET - Sets program counter to top of stack and then decrements pointer 
-    pub fn op_00EE(&mut self) {
+    fn op_00EE(&mut self) {
         self.program_counter = self.execution_stack[self.stack_pointer];
         self.stack_pointer = self.stack_pointer - 1;
     }
 
     /// JP addr - Sets program counter to nnn
-    pub fn op_1nnn(&mut self) {
+    fn op_1nnn(&mut self) {
         let address = self.current_opcode & 0x0FFF;
         self.program_counter = address;
     }
 
     /// CALL addr - Increments the pointer and sets execution stack to program counter.
     /// It then sets the program counter to nnn
-    pub fn op_2nnn(&mut self) {
+    fn op_2nnn(&mut self) {
         let address = self.current_opcode & 0x0FFF;
         self.stack_pointer = self.stack_pointer + 1;
         self.execution_stack[self.stack_pointer] = self.program_counter;
@@ -76,7 +131,7 @@ impl Cpu {
     }
 
     /// SE Vx, byte - if Vx equals kk then increment program counter by 2
-    pub fn op_3xkk(&mut self) {
+    fn op_3xkk(&mut self) {
         let x = self.get_x();
         let kk = self.get_kk();
 
@@ -88,7 +143,7 @@ impl Cpu {
     }
 
     /// SNE Vx, byte - if Vx does not equal kk then increment program counter by 2
-    pub fn op_4xkk(&mut self) {
+    fn op_4xkk(&mut self) {
         let x = self.get_x();
         let kk = self.get_kk();
 
@@ -100,7 +155,7 @@ impl Cpu {
     }
 
     /// SE Vx, Vy - Compare Vx to Vy. If they are equal, then increment counter by 2
-    pub fn op_5xy0(&mut self) {
+    fn op_5xy0(&mut self) {
         let x = self.get_x();
         let y = self.get_y();
 
@@ -112,7 +167,7 @@ impl Cpu {
     }
 
     /// LD Vx, byte - Sets Vx to kk 
-    pub fn op_6xkk(&mut self) {
+    fn op_6xkk(&mut self) {
         let x = self.get_x();
         let kk = self.get_kk();
 
@@ -120,7 +175,7 @@ impl Cpu {
     }
 
     /// ADD Vx, byte - Adds kk to Vx
-    pub fn op_7xkk(&mut self) {
+    fn op_7xkk(&mut self) {
         let x = self.get_x();
         let kk = self.get_kk();
 
@@ -128,7 +183,7 @@ impl Cpu {
     }
 
     /// LD Vx, Vy - Sets Vx to Vy
-    pub fn op_8xy09(&mut self) {
+    fn op_8xy0(&mut self) {
         let x = self.get_x();
         let y = self.get_y();
 
@@ -136,7 +191,7 @@ impl Cpu {
     }
 
     /// OR Vx, Vy - Does a bitwise OR on Vx and Vy and stores it in Vx
-    pub fn op_8xy1(&mut self) {
+    fn op_8xy1(&mut self) {
         let x = self.get_x();
         let y = self.get_y();
 
@@ -144,7 +199,7 @@ impl Cpu {
     }
 
     /// AND Vx, Vy - Does a bitwise AND on Vx and Vy and stores it in Vx
-    pub fn op_8xy2(&mut self) {
+    fn op_8xy2(&mut self) {
         let x = self.get_x();
         let y = self.get_y();
 
@@ -152,7 +207,7 @@ impl Cpu {
     }
 
     /// XOR Vx, Vy - Does a bitwise XOR on Vx and Vy and stores it in Vx
-    pub fn op_8xy3(&mut self) {
+    fn op_8xy3(&mut self) {
         let x = self.get_x();
         let y = self.get_y();
 
@@ -160,7 +215,7 @@ impl Cpu {
     }
 
     /// ADD Vx, Vy
-    pub fn op_8xy4(&mut self) {
+    fn op_8xy4(&mut self) {
         let x = self.get_x();
         let y = self.get_y();
 
@@ -170,7 +225,7 @@ impl Cpu {
     }
 
     /// SUB Vx, Vy
-    pub fn op_8xy5(&mut self) {
+    fn op_8xy5(&mut self) {
         let x = self.get_x();
         let y = self.get_y();
 
@@ -184,7 +239,7 @@ impl Cpu {
     }
 
     /// SHR Vx {, Vy}
-    pub fn op_8xy6(&mut self) {
+    fn op_8xy6(&mut self) {
         let x = self.get_x();
 
         self.cpu_registers[0xF as usize] = self.cpu_registers[x] & 0x1;
@@ -192,7 +247,7 @@ impl Cpu {
     }
 
     /// SUBN Vx, Vy
-    pub fn op_8xy7(&mut self) {
+    fn op_8xy7(&mut self) {
         let x = self.get_x();
         let y = self.get_y();
 
@@ -206,7 +261,7 @@ impl Cpu {
     }
 
     /// SHL Vx {, Vy}
-    pub fn op_8xyE(&mut self) {
+    fn op_8xyE(&mut self) {
         let x = self.get_x();
 
         self.cpu_registers[0xF as usize] = (self.cpu_registers[x] & 0x80) >> 7;
@@ -214,7 +269,7 @@ impl Cpu {
     }
 
     /// SNE Vx, Vy
-    pub fn op_9xy0(&mut self) {
+    fn op_9xy0(&mut self) {
         let x = self.get_x();
         let y = self.get_y();
 
@@ -226,19 +281,19 @@ impl Cpu {
     }
 
     /// LD I, addr
-    pub fn op_Annn(&mut self) {
+    fn op_Annn(&mut self) {
         let address = self.current_opcode & 0x0FFF;
         self.index_register = address;
     }
 
     /// JP V0, addr
-    pub fn op_Bnnn(&mut self) {
+    fn op_Bnnn(&mut self) {
         let address = self.current_opcode & 0x0FFF;
         self.program_counter = (self.cpu_registers[0] as u16) + address;
     }
 
     /// RND Vx, byte
-    pub fn op_Cxkk(&mut self) {
+    fn op_Cxkk(&mut self) {
         let x = self.get_x();
         let kk = self.get_kk();
         let mut rand = rand::thread_rng();
@@ -248,7 +303,7 @@ impl Cpu {
     }
 
     /// DRW Vx, Vy, nibble
-    pub fn op_Dxyn(&mut self) {
+    fn op_Dxyn(&mut self) {
         let x = self.get_x();
         let y = self.get_y();
         let n = self.current_opcode & 0xF;
@@ -268,7 +323,7 @@ impl Cpu {
     }
 
     /// SKP Vx
-    pub fn op_Ex9E(&mut self) {
+    fn op_Ex9E(&mut self) {
         let x = self.get_x();
 
         if self.keypad[x] == 0 {
@@ -279,7 +334,7 @@ impl Cpu {
     }
 
     /// SKNP Vx
-    pub fn op_ExA1(&mut self) {
+    fn op_ExA1(&mut self) {
         let x = self.get_x();
 
         if self.keypad[x] != 0 {
@@ -290,20 +345,22 @@ impl Cpu {
     }
 
     /// LD Vx, DT
-    pub fn op_Fx07(&mut self) {
+    fn op_Fx07(&mut self) {
         let x = self.get_x();
 
         self.cpu_registers[x] = self.delay_timer;
     }
 
     /// LD Vx, K
-    pub fn op_Fx0A(&mut self) {
+    fn op_Fx0A(&mut self) {
         let x = self.get_x();
 
         let mut key_pressed = false;
         for i in 0..self.keypad.len() {
-            if self.keypad[i] != 0 {
+            let key = self.keypad[i];
+            if key != 0 {
                 key_pressed = true;
+                self.cpu_registers[x] = key;
                 break;
             }
         }
@@ -314,28 +371,28 @@ impl Cpu {
     }
 
     /// LD DT, Vx
-    pub fn op_Fx15(&mut self) {
+    fn op_Fx15(&mut self) {
         let x = self.get_x();
 
         self.delay_timer = self.cpu_registers[x];
     }
 
     /// LD ST, Vx
-    pub fn op_Fx18(&mut self) {
+    fn op_Fx18(&mut self) {
         let x = self.get_x();
 
         self.sound_timer = self.cpu_registers[x];
     }
 
     /// ADD I, Vx
-    pub fn op_Fx1E(&mut self) {
+    fn op_Fx1E(&mut self) {
         let x = self.get_x();
 
         self.index_register += self.cpu_registers[x] as u16;
     }
 
     /// LD F, Vx
-    pub fn op_Fx29(&mut self) {
+    fn op_Fx29(&mut self) {
         let x = self.get_x();
         let digit = self.cpu_registers[x] as u16;
 
@@ -343,7 +400,7 @@ impl Cpu {
     }
 
     /// LD B, Vx
-    pub fn op_Fx33(&mut self) {
+    fn op_Fx33(&mut self) {
         let x = self.get_x();
         let mut vx = self.cpu_registers[x];
         
@@ -357,14 +414,14 @@ impl Cpu {
     }
 
     /// LD [I], Vx
-    pub fn op_Fx55(&mut self) {
+    fn op_Fx55(&mut self) {
         for i in 0..self.cpu_registers.len() - 1 {
             self.memory[self.index_register as usize + i] = self.cpu_registers[i];
         }
     }
 
     /// LD Vx, [I]
-    pub fn op_Fx65(&mut self) {
+    fn op_Fx65(&mut self) {
         for i in 0..self.cpu_registers.len() - 1 {
             self.cpu_registers[i] = self.memory[self.index_register as usize + i];
         }
