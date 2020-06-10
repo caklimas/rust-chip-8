@@ -57,7 +57,6 @@ impl Cpu {
         let second = self.memory[(self.program_counter + 1) as usize] as u16;
         let opcode = (first << 8) | (second & 0xFF);
 
-        //println!("Got opcode: {:#05X}", opcode);
         self.current_opcode = opcode;
     }
 
@@ -128,14 +127,13 @@ impl Cpu {
         }
 
         if self.sound_timer > 0 {
-            //println!("BEEP!");
+            println!("Beep!");
             self.sound_timer -= 1;
         }
     }
 
     /// CLS - Clears the display
     fn op_00E0(&mut self) {
-        //println!("Clears the display");
         for i in 0..self.graphics.len() {
             for j in 0..self.graphics[i].len() {
                 self.graphics[i][j] = false;
@@ -145,7 +143,6 @@ impl Cpu {
 
     /// RET - Sets program counter to top of stack and then decrements pointer 
     fn op_00EE(&mut self) {
-        //println!("Return from a subroutine");
         self.stack_pointer -= 1;
         self.program_counter = self.execution_stack[self.stack_pointer];
     }
@@ -153,7 +150,6 @@ impl Cpu {
     /// JP addr - Sets program counter to nnn
     fn op_1nnn(&mut self) {
         let address = self.current_opcode & 0x0FFF;
-        //println!("Jump to address {:#05X}", address);
         self.program_counter = address;
     }
 
@@ -161,7 +157,6 @@ impl Cpu {
     /// It then sets the program counter to nnn
     fn op_2nnn(&mut self) {
         let address = self.current_opcode & 0x0FFF;
-        //println!("Execute subroutine starting at address {:#05X}", address);
 
         self.execution_stack[self.stack_pointer as usize] = self.program_counter + 2;
         self.stack_pointer += 1;
@@ -209,7 +204,6 @@ impl Cpu {
         let x = self.get_x();
         let kk = self.get_kk();
 
-        //println!("Store number {:#04X} in register V{:X}", kk, x);
         self.cpu_registers[x as usize] = kk;
     }
 
@@ -344,7 +338,6 @@ impl Cpu {
 
     /// DRW Vx, Vy, nibble
     fn op_Dxyn(&mut self) {
-        //println!("Draw");
         let x = self.get_x();
         let y = self.get_y();
         let n = (self.current_opcode & 0xF) as u8;
@@ -375,7 +368,7 @@ impl Cpu {
     fn op_Ex9E(&mut self) {
         let x = self.get_x();
 
-        if !self.keypad[x] {
+        if !self.keypad[self.cpu_registers[x] as usize] {
             return;
         }
 
@@ -386,7 +379,7 @@ impl Cpu {
     fn op_ExA1(&mut self) {
         let x = self.get_x();
 
-        if self.keypad[x] {
+        if self.keypad[self.cpu_registers[x] as usize] {
             return;
         }
 
