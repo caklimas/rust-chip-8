@@ -2,8 +2,8 @@ use rand::Rng;
 const START_ADDRESS: u16 = 0x200;
 const FONT_START_ADDRESS: usize = 0x50;
 
-pub const VIDEO_WIDTH: u8 = 64;
-pub const VIDEO_HEIGHT: u8 = 32;
+pub const SCREEN_WIDTH: u8 = 64;
+pub const SCREEN_HEIGHT: u8 = 32;
 
 pub struct Cpu {
     pub current_opcode: u16,
@@ -16,7 +16,7 @@ pub struct Cpu {
     pub delay_timer: u8, // If it's zero it stays zero, otherwise it counts down to zero at 60Hz
     pub sound_timer: u8, // If it's zero it stays zero, otherwise it decrements and makes a sound every time it does
     pub keypad: [bool; 16],
-    pub graphics: [[u8; VIDEO_WIDTH as usize]; VIDEO_HEIGHT as usize]
+    pub graphics: [[bool; SCREEN_WIDTH as usize]; SCREEN_HEIGHT as usize]
 }
 
 impl Cpu {
@@ -31,7 +31,7 @@ impl Cpu {
             delay_timer: 0,
             sound_timer: 0,
             keypad: [false; 16],
-            graphics: [[0; VIDEO_WIDTH as usize]; VIDEO_HEIGHT as usize],
+            graphics: [[false; SCREEN_WIDTH as usize]; SCREEN_HEIGHT as usize],
             current_opcode: 0
         };
     
@@ -57,7 +57,7 @@ impl Cpu {
         let second = self.memory[(self.program_counter + 1) as usize] as u16;
         let opcode = (first << 8) | (second & 0xFF);
 
-        println!("Got opcode: {:#05X}", opcode);
+        //println!("Got opcode: {:#05X}", opcode);
         self.current_opcode = opcode;
     }
 
@@ -128,24 +128,24 @@ impl Cpu {
         }
 
         if self.sound_timer > 0 {
-            println!("BEEP!");
+            //println!("BEEP!");
             self.sound_timer -= 1;
         }
     }
 
     /// CLS - Clears the display
     fn op_00E0(&mut self) {
-        println!("Clears the display");
+        //println!("Clears the display");
         for i in 0..self.graphics.len() {
             for j in 0..self.graphics[i].len() {
-                self.graphics[i][j] = 0;
+                self.graphics[i][j] = false;
             }
         }
     }
 
     /// RET - Sets program counter to top of stack and then decrements pointer 
     fn op_00EE(&mut self) {
-        println!("Return from a subroutine");
+        //println!("Return from a subroutine");
         self.stack_pointer -= 1;
         self.program_counter = self.execution_stack[self.stack_pointer];
     }
@@ -153,7 +153,7 @@ impl Cpu {
     /// JP addr - Sets program counter to nnn
     fn op_1nnn(&mut self) {
         let address = self.current_opcode & 0x0FFF;
-        println!("Jump to address {:#05X}", address);
+        //println!("Jump to address {:#05X}", address);
         self.program_counter = address;
     }
 
@@ -161,7 +161,7 @@ impl Cpu {
     /// It then sets the program counter to nnn
     fn op_2nnn(&mut self) {
         let address = self.current_opcode & 0x0FFF;
-        println!("Execute subroutine starting at address {:#05X}", address);
+        //println!("Execute subroutine starting at address {:#05X}", address);
 
         self.execution_stack[self.stack_pointer as usize] = self.program_counter + 2;
         self.stack_pointer += 1;
@@ -209,16 +209,17 @@ impl Cpu {
         let x = self.get_x();
         let kk = self.get_kk();
 
-        println!("Store number {:#04X} in register V{:X}", kk, x);
+        //println!("Store number {:#04X} in register V{:X}", kk, x);
         self.cpu_registers[x as usize] = kk;
     }
 
     /// ADD Vx, byte - Adds kk to Vx
     fn op_7xkk(&mut self) {
         let x = self.get_x();
-        let kk = self.get_kk();
+        let kk = self.get_kk() as u16;
+        let sum = (self.cpu_registers[x] as u16) + kk;
 
-        self.cpu_registers[x] = self.cpu_registers[x] + kk;
+        self.cpu_registers[x] = sum as u8;
     }
 
     /// LD Vx, Vy - Sets Vx to Vy
@@ -258,9 +259,9 @@ impl Cpu {
         let x = self.get_x();
         let y = self.get_y();
 
-        let sum = self.cpu_registers[x] + self.cpu_registers[y];
-        self.cpu_registers[0xF as usize] = if sum > (0xFF as u8) { 1 } else { 0 };
-        self.cpu_registers[x] = sum & 0xFF;
+        let sum = (self.cpu_registers[x] as u16) + (self.cpu_registers[y] as u16);
+        self.cpu_registers[0xF as usize] = if sum > 0xFF { 1 } else { 0 };
+        self.cpu_registers[x] = sum as u8;
     }
 
     /// SUB Vx, Vy
@@ -274,7 +275,7 @@ impl Cpu {
             self.cpu_registers[0xF as usize] = 0;
         }
 
-        self.cpu_registers[x] = self.cpu_registers[x] - self.cpu_registers[y];
+        self.cpu_registers[x] = self.cpu_registers[x].wrapping_sub(self.cpu_registers[y]);
     }
 
     /// SHR Vx {, Vy}
@@ -296,7 +297,7 @@ impl Cpu {
             self.cpu_registers[0xF as usize] = 0;
         }
 
-        self.cpu_registers[x] = self.cpu_registers[y] - self.cpu_registers[x];
+        self.cpu_registers[x] = self.cpu_registers[y].wrapping_sub(self.cpu_registers[x]);
     }
 
     /// SHL Vx {, Vy}
@@ -343,21 +344,29 @@ impl Cpu {
 
     /// DRW Vx, Vy, nibble
     fn op_Dxyn(&mut self) {
-        println!("Draw");
+        //println!("Draw");
         let x = self.get_x();
         let y = self.get_y();
-        let n = self.current_opcode & 0xF;
+        let n = (self.current_opcode & 0xF) as u8;
 
         self.cpu_registers[0xF] = 0;
-        
         for sprite_row in 0..n {
-            let y_pos = (self.cpu_registers[y + sprite_row as usize] % VIDEO_HEIGHT) as usize;
-            let sprite_byte = self.memory[(self.index_register + sprite_row) as usize];
+            let screen_row: usize = (self.cpu_registers[y] + sprite_row) as usize;
             for sprite_col in 0..8 {
-                let x_pos = (self.cpu_registers[x + sprite_col] % VIDEO_WIDTH) as usize;
-                let color = (sprite_byte >> (7 - sprite_col)) & 1;
-                self.cpu_registers[0xF] |= color & self.graphics[y_pos as usize][x_pos as usize];
-                self.graphics[y_pos as usize][x_pos as usize];
+                let screen_col: usize = (self.cpu_registers[x] + sprite_col) as usize;
+                let sprite_pixel = (self.memory
+                    [(self.index_register + sprite_row as u16) as usize]
+                    & (0x80 >> sprite_col))
+                    >> 7 - sprite_col;
+
+                if screen_row < SCREEN_HEIGHT as usize && screen_col < SCREEN_WIDTH as usize {
+                    if sprite_pixel == 1 {
+                        if self.graphics[screen_row][screen_col] == true {
+                            self.cpu_registers[0xF] = 1;
+                        }
+                        self.graphics[screen_row][screen_col] ^= true;
+                    }
+                }
             }
         }
     }
@@ -455,14 +464,16 @@ impl Cpu {
 
     /// LD [I], Vx
     fn op_Fx55(&mut self) {
-        for i in 0..self.cpu_registers.len() - 1 {
+        let x = self.get_x();
+        for i in 0..=x {
             self.memory[self.index_register as usize + i] = self.cpu_registers[i];
         }
     }
 
     /// LD Vx, [I]
     fn op_Fx65(&mut self) {
-        for i in 0..self.cpu_registers.len() - 1 {
+        let x = self.get_x();
+        for i in 0..=x {
             self.cpu_registers[i] = self.memory[self.index_register as usize + i];
         }
     }

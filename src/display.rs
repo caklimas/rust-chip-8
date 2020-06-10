@@ -3,8 +3,8 @@ use ggez::event::KeyCode;
 use ggez::event::KeyMods;
 
 const PIXEL_SIZE: i32 = 20;
-pub const WINDOW_WIDTH: f32 = cpu::VIDEO_WIDTH as f32 * PIXEL_SIZE as f32;
-pub const WINDOW_HEIGHT: f32 = cpu::VIDEO_HEIGHT as f32 * PIXEL_SIZE as f32;
+pub const WINDOW_WIDTH: f32 = cpu::SCREEN_WIDTH as f32 * PIXEL_SIZE as f32;
+pub const WINDOW_HEIGHT: f32 = cpu::SCREEN_HEIGHT as f32 * PIXEL_SIZE as f32;
 
 use crate::cpu;
 
@@ -17,15 +17,15 @@ impl ggez::event::EventHandler for cpu::Cpu {
     fn draw(&mut self, ctx: &mut Context) -> GameResult<()> {
         graphics::clear(ctx, graphics::BLACK);
 
-        for row in 0..cpu::VIDEO_HEIGHT {
-            for column in 0..cpu::VIDEO_WIDTH {
-                if self.graphics[row as usize][column as usize] == 0 {
+        for row in 0..cpu::SCREEN_HEIGHT {
+            for column in 0..cpu::SCREEN_WIDTH {
+                if self.graphics[row as usize][column as usize] == false {
                     continue;
                 }
 
                 let rect = ggez::graphics::Rect::new_i32(
-                    row as i32 * PIXEL_SIZE,
                     column as i32 * PIXEL_SIZE,
+                    row as i32 * PIXEL_SIZE,
                     PIXEL_SIZE,
                     PIXEL_SIZE
                 );

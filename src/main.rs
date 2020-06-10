@@ -5,7 +5,7 @@ mod cpu;
 mod display;
 
 fn main() {
-    let bytes = fs::read(r".\src\test_roms\test_opcode.ch8").expect("Cannot find file");
+    let bytes = fs::read(r".\src\test_roms\Pong.ch8").expect("Cannot find file");
     let mut c = cpu::Cpu::new();
     c.load_rom(bytes);
 
@@ -19,4 +19,4 @@ fn main() {
         .expect("Error building context");
 
     event::run(ctx, event_loop, &mut c).expect("Error running loop");
-}
+} 
