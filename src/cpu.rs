@@ -15,7 +15,7 @@ pub struct Cpu {
     pub stack_pointer: usize,
     pub delay_timer: u8, // If it's zero it stays zero, otherwise it counts down to zero at 60Hz
     pub sound_timer: u8, // If it's zero it stays zero, otherwise it decrements and makes a sound every time it does
-    pub keypad: [u8; 16],
+    pub keypad: [bool; 16],
     pub graphics: [[u8; VIDEO_WIDTH as usize]; VIDEO_HEIGHT as usize]
 }
 
@@ -30,7 +30,7 @@ impl Cpu {
             stack_pointer: 0,
             delay_timer: 0,
             sound_timer: 0,
-            keypad: [0; 16],
+            keypad: [false; 16],
             graphics: [[0; VIDEO_WIDTH as usize]; VIDEO_HEIGHT as usize],
             current_opcode: 0
         };
@@ -57,6 +57,7 @@ impl Cpu {
         let second = self.memory[(self.program_counter + 1) as usize] as u16;
         let opcode = (first << 8) | (second & 0xFF);
 
+        println!("Got opcode: {:#05X}", opcode);
         self.current_opcode = opcode;
     }
 
@@ -70,9 +71,18 @@ impl Cpu {
 
         match opcode_parts {
             (0x0, 0x0, 0xE, 0x0) => self.op_00E0(),
-            (0x0, 0x0, 0xE, 0xE) => self.op_00EE(),
-            (0x1, _, _, _) => self.op_1nnn(),
-            (0x2, _, _, _) => self.op_2nnn(),
+            (0x0, 0x0, 0xE, 0xE) => {
+                self.op_00EE();
+                return;
+            },
+            (0x1, _, _, _) => {
+                self.op_1nnn();
+                return;
+            },
+            (0x2, _, _, _) => {
+                self.op_2nnn();
+                return;
+            },
             (0x3, _, _, _) => self.op_3xkk(),
             (0x4, _, _, _) => self.op_4xkk(),
             (0x5, _, _, _) => self.op_5xy0(),
@@ -89,7 +99,10 @@ impl Cpu {
             (0x8, _, _, 0xE) => self.op_8xyE(),
             (0x9, _, _, _) => self.op_9xy0(),
             (0xA, _, _, _) => self.op_Annn(),
-            (0xB, _, _, _) => self.op_Bnnn(),
+            (0xB, _, _, _) => {
+                self.op_Bnnn();
+                return;
+            },
             (0xC, _, _, _) => self.op_Cxkk(),
             (0xD, _, _, _) => self.op_Dxyn(),
             (0xE, _, 0x9, 0xE) => self.op_Ex9E(),
@@ -105,6 +118,8 @@ impl Cpu {
             (0xF, _, 0x6, 0x5) => self.op_Fx65(),
             _ => ()
         };
+
+        self.program_counter += 2;
     }
 
     fn update_timers(&mut self) {
@@ -113,12 +128,14 @@ impl Cpu {
         }
 
         if self.sound_timer > 0 {
+            println!("BEEP!");
             self.sound_timer -= 1;
         }
     }
 
     /// CLS - Clears the display
     fn op_00E0(&mut self) {
+        println!("Clears the display");
         for i in 0..self.graphics.len() {
             for j in 0..self.graphics[i].len() {
                 self.graphics[i][j] = 0;
@@ -128,14 +145,15 @@ impl Cpu {
 
     /// RET - Sets program counter to top of stack and then decrements pointer 
     fn op_00EE(&mut self) {
+        println!("Return from a subroutine");
+        self.stack_pointer -= 1;
         self.program_counter = self.execution_stack[self.stack_pointer];
-        self.stack_pointer = self.stack_pointer - 1;
     }
 
     /// JP addr - Sets program counter to nnn
     fn op_1nnn(&mut self) {
-        println!("JMP");
         let address = self.current_opcode & 0x0FFF;
+        println!("Jump to address {:#05X}", address);
         self.program_counter = address;
     }
 
@@ -143,8 +161,10 @@ impl Cpu {
     /// It then sets the program counter to nnn
     fn op_2nnn(&mut self) {
         let address = self.current_opcode & 0x0FFF;
-        self.stack_pointer = self.stack_pointer + 1;
-        self.execution_stack[self.stack_pointer] = self.program_counter;
+        println!("Execute subroutine starting at address {:#05X}", address);
+
+        self.execution_stack[self.stack_pointer as usize] = self.program_counter + 2;
+        self.stack_pointer += 1;
         self.program_counter = address;
     }
 
@@ -189,6 +209,7 @@ impl Cpu {
         let x = self.get_x();
         let kk = self.get_kk();
 
+        println!("Store number {:#04X} in register V{:X}", kk, x);
         self.cpu_registers[x as usize] = kk;
     }
 
@@ -322,18 +343,19 @@ impl Cpu {
 
     /// DRW Vx, Vy, nibble
     fn op_Dxyn(&mut self) {
+        println!("Draw");
         let x = self.get_x();
         let y = self.get_y();
         let n = self.current_opcode & 0xF;
 
         self.cpu_registers[0xF] = 0;
         
-        for byte in 0..n {
-            let y_pos = (self.cpu_registers[y + byte as usize] % VIDEO_HEIGHT) as usize;
-            let sprite_byte = self.memory[(self.index_register + byte) as usize];
-            for bit in 0..8 {
-                let x_pos = (self.cpu_registers[x + bit] % VIDEO_WIDTH) as usize;
-                let color = (sprite_byte >> (7 - bit)) & 1;
+        for sprite_row in 0..n {
+            let y_pos = (self.cpu_registers[y + sprite_row as usize] % VIDEO_HEIGHT) as usize;
+            let sprite_byte = self.memory[(self.index_register + sprite_row) as usize];
+            for sprite_col in 0..8 {
+                let x_pos = (self.cpu_registers[x + sprite_col] % VIDEO_WIDTH) as usize;
+                let color = (sprite_byte >> (7 - sprite_col)) & 1;
                 self.cpu_registers[0xF] |= color & self.graphics[y_pos as usize][x_pos as usize];
                 self.graphics[y_pos as usize][x_pos as usize];
             }
@@ -344,7 +366,7 @@ impl Cpu {
     fn op_Ex9E(&mut self) {
         let x = self.get_x();
 
-        if self.keypad[x] == 0 {
+        if !self.keypad[x] {
             return;
         }
 
@@ -355,7 +377,7 @@ impl Cpu {
     fn op_ExA1(&mut self) {
         let x = self.get_x();
 
-        if self.keypad[x] != 0 {
+        if self.keypad[x] {
             return;
         }
 
@@ -376,15 +398,15 @@ impl Cpu {
         let mut key_pressed = false;
         for i in 0..self.keypad.len() {
             let key = self.keypad[i];
-            if key != 0 {
+            if key {
                 key_pressed = true;
-                self.cpu_registers[x] = key;
+                self.cpu_registers[x] = i as u8;
                 break;
             }
         }
 
         if !key_pressed {
-            self.program_counter -= 2;
+            self.program_counter -= 4;
         }
     }
 
