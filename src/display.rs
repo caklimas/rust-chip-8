@@ -15,6 +15,10 @@ impl ggez::event::EventHandler for cpu::Cpu {
     }
 
     fn draw(&mut self, ctx: &mut Context) -> GameResult<()> {
+        if !self.can_draw {
+            return Ok(());
+        }
+
         graphics::clear(ctx, graphics::BLACK);
 
         for row in 0..cpu::SCREEN_HEIGHT {
@@ -42,6 +46,7 @@ impl ggez::event::EventHandler for cpu::Cpu {
         }
         
         graphics::present(ctx)?;
+        self.can_draw = false;
 
         Ok(())
     }

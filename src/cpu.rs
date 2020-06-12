@@ -16,7 +16,8 @@ pub struct Cpu {
     pub delay_timer: u8, // If it's zero it stays zero, otherwise it counts down to zero at 60Hz
     pub sound_timer: u8, // If it's zero it stays zero, otherwise it decrements and makes a sound every time it does
     pub keypad: [bool; 16],
-    pub graphics: [[bool; SCREEN_WIDTH as usize]; SCREEN_HEIGHT as usize]
+    pub graphics: [[bool; SCREEN_WIDTH as usize]; SCREEN_HEIGHT as usize],
+    pub can_draw: bool
 }
 
 impl Cpu {
@@ -32,7 +33,8 @@ impl Cpu {
             sound_timer: 0,
             keypad: [false; 16],
             graphics: [[false; SCREEN_WIDTH as usize]; SCREEN_HEIGHT as usize],
-            current_opcode: 0
+            current_opcode: 0,
+            can_draw: false
         };
     
         chip8.initialize_fontset();
@@ -139,6 +141,8 @@ impl Cpu {
                 self.graphics[i][j] = false;
             }
         }
+        
+        self.can_draw = true;
     }
 
     /// RET - Sets program counter to top of stack and then decrements pointer 
@@ -362,6 +366,8 @@ impl Cpu {
                 }
             }
         }
+
+        self.can_draw = true;
     }
 
     /// SKP Vx
