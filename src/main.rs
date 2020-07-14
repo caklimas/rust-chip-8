@@ -1,11 +1,13 @@
-use ggez::*;
+use std::env;
 use std::fs;
+use ggez::*;
 
 mod cpu;
 mod display;
 
 fn main() {
-    let bytes = fs::read(r".\src\test_roms\Pong.ch8").expect("Cannot find file");
+    let args: Vec<String> = env::args().collect();
+    let bytes = fs::read(&args[1]).expect("Cannot find file");
     let mut c = cpu::Cpu::new();
     c.load_rom(bytes);
 
